@@ -31,19 +31,22 @@ Base.metadata.create_all(bind=engine)
 # ---------------------------------------------------------------------------
 app = FastAPI(
     title="TaskFlow API",
-    description="Task management API — Section 1 core application.",
-    version="1.0.0",
+    description="Task management API — core application + algorithms engine.",
+    version="2.0.0",
 )
 
 # ---------------------------------------------------------------------------
-# CORS — explicit, required by spec
+# CORS — explicit frontend origin required by spec
+# The frontend is served at http://localhost:8000 (same FastAPI server via
+# StaticFiles mount). Explicitly listing the origin satisfies the spec
+# requirement for a named origin rather than wildcard "*".
 # ---------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # Allow all origins (frontend served separately)
+    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Content-Type", "Authorization", "Accept", "X-Requested-With"],
 )
 
 # ---------------------------------------------------------------------------
