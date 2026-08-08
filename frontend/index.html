@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskFlow</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== Header ===== -->
+  <header class="site-header">
+    <div class="header-inner">
+      <h1 class="logo">&#9745; TaskFlow</h1>
+      <span id="cache-badge" class="cache-badge hidden">[cached]</span>
+    </div>
+  </header>
+
+  <!-- ===== Main layout ===== -->
+  <main class="layout">
+
+    <!-- ===== Left sidebar: Stats ===== -->
+    <aside class="sidebar">
+      <section class="card" id="stats-panel">
+        <h2 class="section-title">Stats</h2>
+        <div class="stat-row"><span class="stat-label">Total</span><span id="stat-total" class="stat-value">—</span></div>
+        <div class="stat-row"><span class="stat-label">Completed</span><span id="stat-completed" class="stat-value">—</span></div>
+        <div class="stat-row"><span class="stat-label">Pending</span><span id="stat-pending" class="stat-value">—</span></div>
+        <div class="stat-row"><span class="stat-label">Completion %</span><span id="stat-rate" class="stat-value">—</span></div>
+        <hr />
+        <div class="stat-row"><span class="stat-label priority-low">Low</span><span id="stat-low" class="stat-value">—</span></div>
+        <div class="stat-row"><span class="stat-label priority-medium">Medium</span><span id="stat-medium" class="stat-value">—</span></div>
+        <div class="stat-row"><span class="stat-label priority-high">High</span><span id="stat-high" class="stat-value">—</span></div>
+        <button class="btn btn-secondary btn-sm" onclick="loadStats()">Refresh</button>
+      </section>
+
+      <!-- Project filter -->
+      <section class="card">
+        <h2 class="section-title">Projects</h2>
+        <select id="filter-project" class="input-field" onchange="applyProjectFilter()">
+          <option value="">All projects</option>
+        </select>
+      </section>
+    </aside>
+
+    <!-- ===== Main content ===== -->
+    <div class="content">
+
+      <!-- Quick-add bar -->
+      <section class="card quick-add-bar">
+        <h2 class="section-title">Quick-Add Task</h2>
+        <div class="quick-add-row">
+          <input
+            id="quick-add-input"
+            type="text"
+            class="input-field"
+            placeholder="e.g. &quot;fix critical bug next monday&quot;"
+          />
+          <select id="quick-add-project" class="input-field select-sm">
+            <option value="">Select project…</option>
+          </select>
+          <button class="btn btn-primary" onclick="submitQuickAdd()">Add</button>
+        </div>
+        <p id="quick-add-error" class="error-msg hidden"></p>
+      </section>
+
+      <!-- Tabs -->
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="tasks" onclick="switchTab('tasks', this)">Tasks</button>
+        <button class="tab-btn" data-tab="create-task" onclick="switchTab('create-task', this)">New Task</button>
+        <button class="tab-btn" data-tab="projects" onclick="switchTab('projects', this)">Projects</button>
+        <button class="tab-btn" data-tab="users" onclick="switchTab('users', this)">Users</button>
+      </div>
+
+      <!-- ===== TAB: Tasks ===== -->
+      <section id="tab-tasks" class="tab-content card">
+        <!-- Sort + search controls -->
+        <div class="controls-row">
+          <div class="control-group">
+            <label class="control-label">Sort by</label>
+            <select id="sort-field" class="input-field select-sm">
+              <option value="">— None —</option>
+              <option value="priority">Priority</option>
+              <option value="due_date">Due Date</option>
+              <option value="title">Title</option>
+            </select>
+            <select id="sort-order" class="input-field select-sm">
+              <option value="asc">Asc</option>
+              <option value="desc">Desc</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="sortTasks()">Sort</button>
+          </div>
+          <div class="control-group">
+            <input id="search-input" type="text" class="input-field" placeholder="Search tasks…" />
+            <select id="search-field" class="input-field select-sm">
+              <option value="title">Title</option>
+              <option value="description">Description</option>
+            </select>
+            <select id="search-method" class="input-field select-sm">
+              <option value="linear">Linear</option>
+              <option value="binary">Binary</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="searchTasks()">Search</button>
+            <button class="btn btn-ghost btn-sm" onclick="clearSearch()">Clear</button>
+          </div>
+        </div>
+
+        <p id="algo-info" class="algo-info hidden"></p>
+
+        <div id="task-list" class="task-grid">
+          <p class="empty-msg">Loading tasks…</p>
+        </div>
+      </section>
+
+      <!-- ===== TAB: New Task form ===== -->
+      <section id="tab-create-task" class="tab-content card hidden">
+        <h2 class="section-title">Create New Task</h2>
+        <form id="create-task-form" onsubmit="submitCreateTask(event)">
+          <div class="form-group">
+            <label for="new-title">Title <span class="required">*</span></label>
+            <input id="new-title" type="text" class="input-field" required maxlength="200" />
+          </div>
+          <div class="form-group">
+            <label for="new-desc">Description</label>
+            <textarea id="new-desc" class="input-field" rows="3"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="new-priority">Priority</label>
+              <select id="new-priority" class="input-field">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="new-due">Due Date</label>
+              <input id="new-due" type="date" class="input-field" />
+            </div>
+            <div class="form-group">
+              <label for="new-project">Project <span class="required">*</span></label>
+              <select id="new-project" class="input-field" required>
+                <option value="">Select project…</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group checkbox-group">
+            <label><input id="new-completed" type="checkbox" /> Mark as completed</label>
+          </div>
+          <p id="create-task-error" class="error-msg hidden"></p>
+          <button type="submit" class="btn btn-primary">Create Task</button>
+        </form>
+      </section>
+
+      <!-- ===== TAB: Projects ===== -->
+      <section id="tab-projects" class="tab-content card hidden">
+        <div class="tab-header">
+          <h2 class="section-title">Projects</h2>
+          <button class="btn btn-primary btn-sm" onclick="toggleNewProjectForm()">+ New Project</button>
+        </div>
+
+        <form id="new-project-form" class="hidden sub-form" onsubmit="submitCreateProject(event)">
+          <div class="form-row">
+            <input id="proj-name" type="text" class="input-field" placeholder="Project name" required />
+            <input id="proj-desc" type="text" class="input-field" placeholder="Description (optional)" />
+            <select id="proj-owner" class="input-field" required>
+              <option value="">Owner…</option>
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm">Create</button>
+          </div>
+          <p id="create-project-error" class="error-msg hidden"></p>
+        </form>
+
+        <div id="project-list" class="item-list">
+          <p class="empty-msg">Loading projects…</p>
+        </div>
+      </section>
+
+      <!-- ===== TAB: Users ===== -->
+      <section id="tab-users" class="tab-content card hidden">
+        <div class="tab-header">
+          <h2 class="section-title">Users</h2>
+          <button class="btn btn-primary btn-sm" onclick="toggleNewUserForm()">+ New User</button>
+        </div>
+
+        <form id="new-user-form" class="hidden sub-form" onsubmit="submitCreateUser(event)">
+          <div class="form-row">
+            <input id="user-name" type="text" class="input-field" placeholder="Full name" required />
+            <input id="user-email" type="email" class="input-field" placeholder="Email address" required />
+            <button type="submit" class="btn btn-primary btn-sm">Create</button>
+          </div>
+          <p id="create-user-error" class="error-msg hidden"></p>
+        </form>
+
+        <div id="user-list" class="item-list">
+          <p class="empty-msg">Loading users…</p>
+        </div>
+      </section>
+
+    </div><!-- /content -->
+  </main>
+
+  <!-- ===== Edit Task Modal ===== -->
+  <div id="edit-modal" class="modal-overlay hidden" onclick="closeEditModal(event)">
+    <div class="modal-box">
+      <h2 class="section-title">Edit Task</h2>
+      <form id="edit-task-form" onsubmit="submitEditTask(event)">
+        <input id="edit-task-id" type="hidden" />
+        <div class="form-group">
+          <label>Title</label>
+          <input id="edit-title" type="text" class="input-field" required maxlength="200" />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="edit-desc" class="input-field" rows="3"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Priority</label>
+            <select id="edit-priority" class="input-field">
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Due Date</label>
+            <input id="edit-due" type="date" class="input-field" />
+          </div>
+        </div>
+        <div class="form-group checkbox-group">
+          <label><input id="edit-completed" type="checkbox" /> Completed</label>
+        </div>
+        <p id="edit-error" class="error-msg hidden"></p>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" class="btn btn-ghost" onclick="document.getElementById('edit-modal').classList.add('hidden')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
