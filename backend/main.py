@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.database import Base, engine
-from backend.routers import projects, tasks, users
+from backend.routers import projects, quick_add, tasks, users
 
 # ---------------------------------------------------------------------------
 # Create tables
@@ -31,8 +31,8 @@ Base.metadata.create_all(bind=engine)
 # ---------------------------------------------------------------------------
 app = FastAPI(
     title="TaskFlow API",
-    description="Task management API — core application + algorithms engine.",
-    version="2.0.0",
+    description="Task management API — core application, algorithms engine, and AI quick-add.",
+    version="3.0.0",
 )
 
 # ---------------------------------------------------------------------------
@@ -64,9 +64,10 @@ async def add_process_time_header(request: Request, call_next):
 # ---------------------------------------------------------------------------
 # Routers
 # ---------------------------------------------------------------------------
-app.include_router(users.router, prefix="/users", tags=["Users"])
-app.include_router(projects.router, prefix="/projects", tags=["Projects"])
-app.include_router(tasks.router, prefix="/tasks", tags=["Tasks"])
+app.include_router(users.router,      prefix="/users",            tags=["Users"])
+app.include_router(projects.router,   prefix="/projects",         tags=["Projects"])
+app.include_router(tasks.router,      prefix="/tasks",            tags=["Tasks"])
+app.include_router(quick_add.router,  prefix="/tasks/quick-add",  tags=["Quick-Add"])
 
 # ---------------------------------------------------------------------------
 # Serve frontend static files (optional convenience — frontend/ directory)
