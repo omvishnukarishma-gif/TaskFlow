@@ -71,11 +71,11 @@ check_result(
 # ============================================================
 print("\n--- Edge cases ---")
 
-# Both high and low keywords → HIGH wins
+# Both high and low keywords -> HIGH wins
 check_result(
-    "high+low → high",
+    "high+low -> high",
     "finish this urgent task whenever",
-    "finish this  task",   # "urgent" removed → double space; "whenever" removed
+    "finish this  task",   # "urgent" removed -> double space; "whenever" removed
     "high",
     None,
 )
@@ -98,7 +98,7 @@ check_result(
     "tomorrow",
 )
 
-# "next Friday" → hint is "next friday", NOT "friday"
+# "next Friday" -> hint is "next friday", NOT "friday"
 check_result(
     "next Friday vs friday",
     "submit report next Friday",
@@ -116,7 +116,7 @@ check_result(
     "friday",
 )
 
-# no keywords → medium + null
+# no keywords -> medium + null
 check_result(
     "no keywords",
     "Buy milk from the store",
@@ -172,7 +172,7 @@ check_result(
 check_result(
     "low priority phrase",
     "This is a low priority task",
-    "This is a  task",   # "low priority" removed → double space
+    "This is a  task",   # "low priority" removed -> double space
     "low",
     None,
 )
@@ -224,7 +224,7 @@ check_result(
 
 # "next monday" present — should NOT match bare "monday"
 r = parse_quick_add("meet team next monday")
-check("next monday → hint is 'next monday' not 'monday'",
+check("next monday -> hint is 'next monday' not 'monday'",
       "next monday", r.due_date_hint)
 
 # bare wednesday
@@ -249,7 +249,7 @@ check_result(
 check_result(
     "whenever",
     "clean the garage whenever you can",
-    "clean the garage  you can",   # "whenever" removed → double space
+    "clean the garage  you can",   # "whenever" removed -> double space
     "low",
     None,
 )

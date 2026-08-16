@@ -140,3 +140,78 @@ class TaskStats(BaseModel):
     pending: int
     by_priority: PriorityBreakdown
     completion_rate: float  # 0.0 – 100.0
+
+
+class ProjectTaskStats(BaseModel):
+    """Per-project task statistics returned by GET /tasks/project-stats."""
+    project_id: int
+    project_name: str
+    total: int
+    completed: int
+    pending: int
+
+
+
+# ---------------------------------------------------------------------------
+# Authentication schemas
+# ---------------------------------------------------------------------------
+
+class RegisterRequest(BaseModel):
+    """Request body for POST /auth/register."""
+    name: str = Field(..., min_length=1, max_length=100, description="Display name")
+    email: str = Field(..., min_length=5, max_length=255, description="E-mail address")
+    password: str = Field(..., min_length=8, max_length=128, description="Plaintext password (min 8 chars)")
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        pattern = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+        if not re.match(pattern, v):
+            raise ValueError("Invalid email address format")
+        return v.lower().strip()
+
+
+class LoginRequest(BaseModel):
+    """Request body for POST /auth/login."""
+    email: str = Field(..., min_length=5, max_length=255)
+    password: str = Field(..., min_length=1, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return v.lower().strip()
+
+
+class AuthResponse(BaseModel):
+    """Response body for successful login/register."""
+    token: str
+    user_id: int
+    user_name: str
+    user_email: str
+    message: str = "ok"
+
+
+# ---------------------------------------------------------------------------
+# Password-reset schemas
+# ---------------------------------------------------------------------------
+
+class ForgotPasswordRequest(BaseModel):
+    """Request body for POST /auth/forgot-password."""
+    email: str = Field(..., min_length=5, max_length=255, description="Registered e-mail address")
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return v.lower().strip()
+
+
+class ResetPasswordRequest(BaseModel):
+    """Request body for POST /auth/reset-password."""
+    token: str = Field(
+        ..., min_length=1, max_length=200,
+        description="Raw reset token (received via console in dev mode or email in production)",
+    )
+    new_password: str = Field(
+        ..., min_length=8, max_length=128,
+        description="New plaintext password (min 8 characters)",
+    )

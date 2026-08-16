@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.database import Base, engine
-from backend.routers import projects, quick_add, tasks, users
+from backend.routers import auth, projects, quick_add, tasks, users
 
 # ---------------------------------------------------------------------------
 # Create tables
@@ -54,11 +54,12 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
-    """Measure wall-clock request duration and expose it as X-Process-Time (ms)."""
+    """Measure wall-clock request duration, log it, and expose it as X-Process-Time (ms)."""
     start = time.perf_counter()
     response = await call_next(request)
     duration_ms = (time.perf_counter() - start) * 1000
     response.headers["X-Process-Time"] = f"{duration_ms:.3f}ms"
+    print(f"{request.method} {request.url.path} {duration_ms:.3f}ms")
     return response
 
 # ---------------------------------------------------------------------------
@@ -68,6 +69,7 @@ app.include_router(users.router,      prefix="/users",            tags=["Users"]
 app.include_router(projects.router,   prefix="/projects",         tags=["Projects"])
 app.include_router(tasks.router,      prefix="/tasks",            tags=["Tasks"])
 app.include_router(quick_add.router,  prefix="/tasks/quick-add",  tags=["Quick-Add"])
+app.include_router(auth.router,       prefix="/auth",             tags=["Auth"])
 
 # ---------------------------------------------------------------------------
 # Serve frontend static files (optional convenience — frontend/ directory)

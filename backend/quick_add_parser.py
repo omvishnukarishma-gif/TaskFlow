@@ -55,9 +55,11 @@ Title generation:
     1. Start from the ORIGINAL-CASED description.
     2. Remove every occurrence of all priority keywords (case-insensitive).
     3. Remove every occurrence of the matched due-date phrase (case-insensitive).
-    4. Collapse runs of whitespace to a single space.
-    5. Call .strip().
-    6. If the result is empty or whitespace-only: use "Untitled task".
+    4. Call .strip() only — internal whitespace is NOT collapsed.
+       Gaps left by removed keywords remain as-is (e.g. "mark it  please"
+       keeps the double space). This is intentional and required by the
+       regression test expectations.
+    5. If the result is empty or whitespace-only: use "Untitled task".
 """
 
 from __future__ import annotations
@@ -94,7 +96,7 @@ Due-date matching order (first match wins, case-insensitive):
   monday, tuesday, wednesday, thursday, friday, saturday, sunday.
 
 Title: start from original text, remove priority keywords + date phrase,
-collapse whitespace, .strip(). If empty → "Untitled task".
+.strip() only (internal whitespace preserved). If empty → "Untitled task".
 """.strip()
 
 # ---------------------------------------------------------------------------

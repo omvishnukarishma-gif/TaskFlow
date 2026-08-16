@@ -8,7 +8,8 @@ Endpoint inventory:
   POST   /tasks                          — create (201 | 422 | 404)
   GET    /tasks                          — list all OR sort by priority (200)
   GET    /tasks/stats                    — SQL-aggregated statistics (200)
-  GET    /tasks/search                   — binary or linear search by title (200)
+  GET    /tasks/project-stats            — per-project stats via JOIN + GROUP BY (200)
+  GET    /tasks/search                   — binary or linear search by title (200|404)
   GET    /tasks/{id}                     — single task (200 | 404)
   PUT    /tasks/{id}                     — partial update (200 | 422 | 404)
   DELETE /tasks/{id}                     — delete (200 | 404)
@@ -23,16 +24,22 @@ Algorithm integration:
 
 from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
-from backend.algorithms.searching import binary_search, linear_search
-from backend.algorithms.sorting import insertion_sort
+from backend.algorithms.searching import (
+    binary_search,
+    binary_search_count,
+    linear_search,
+    linear_search_count,
+)
+from backend.algorithms.sorting import insertion_sort, insertion_sort_count
 from backend.dependencies import get_db
 from backend.models import Project, Task
 from backend.schemas import (
     PriorityBreakdown,
+    ProjectTaskStats,
     TaskCreate,
     TaskOut,
     TaskStats,
@@ -122,6 +129,52 @@ def get_task_stats(
 
 
 # ---------------------------------------------------------------------------
+# Per-project statistics  (JOIN projects + tasks, GROUP BY project)
+# ---------------------------------------------------------------------------
+
+@router.get("/project-stats", response_model=list)
+def get_project_task_stats(db: Session = Depends(get_db)):
+    """
+    Return per-project task statistics computed entirely in SQL.
+
+    The query performs:
+      SELECT projects.id, projects.name,
+             COUNT(tasks.id)                             AS total,
+             SUM(CASE WHEN tasks.completed THEN 1 END)  AS completed,
+             SUM(CASE WHEN NOT tasks.completed THEN 1 END) AS pending
+      FROM projects
+      LEFT JOIN tasks ON tasks.project_id = projects.id
+      GROUP BY projects.id, projects.name
+
+    Returns a list of per-project stat objects, one entry per project.
+    Projects with zero tasks are included (all counts = 0).
+    """
+    rows = (
+        db.query(
+            Project.id.label("project_id"),
+            Project.name.label("project_name"),
+            func.count(Task.id).label("total"),
+            func.sum(case((Task.completed == True, 1), else_=0)).label("completed"),
+            func.sum(case((Task.completed == False, 1), else_=0)).label("pending"),
+        )
+        .outerjoin(Task, Task.project_id == Project.id)
+        .group_by(Project.id, Project.name)
+        .all()
+    )
+
+    return [
+        ProjectTaskStats(
+            project_id=row.project_id,
+            project_name=row.project_name,
+            total=row.total or 0,
+            completed=row.completed or 0,
+            pending=row.pending or 0,
+        )
+        for row in rows
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Search  (fixed path — must be before /{task_id})
 # ---------------------------------------------------------------------------
 
@@ -129,48 +182,71 @@ def get_task_stats(
 def search_tasks(
     title: str = Query(..., description="Exact task title to search for"),
     algo: Literal["binary", "linear"] = Query(
-        "binary", description="Search algorithm: binary (default) or linear"
+        "binary",
+        description="Search algorithm: binary (default) or linear",
     ),
     db: Session = Depends(get_db),
 ):
     """
     Search tasks by exact title match.
 
-    - algo=binary  (default): builds a sorted index via insertion_sort, then
-      runs binary_search on that sorted index.
-    - algo=linear: runs linear_search directly on the unsorted DB rows.
+    - algo=binary (default): sorts the tasks using insertion_sort,
+      then runs binary_search_count on the sorted list.
+    - algo=linear: runs linear_search_count directly on the
+      unsorted database rows.
 
     Both algorithms operate on real Task rows from the database.
 
-    Returns: { tasks, count, steps, algorithm }
+    Returns 200 with { tasks, count, steps, algorithm } on match.
+    Returns 404 when no exact-title match exists.
     """
     all_tasks: List[Task] = db.query(Task).all()
 
     if algo == "binary":
-        # Step 1: sort using custom insertion_sort (low=1,medium=2,high=3 for
-        # priority index, but for title search we sort by title alphabetically)
-        sorted_tasks, _sort_comparisons = insertion_sort(all_tasks, key=_title_key)
-        # Step 2: binary search on the sorted index
-        matches, steps = binary_search(sorted_tasks, target_value=title, key=_title_key)
+        insertion_sort(all_tasks, key=_title_key)
+
+        result = binary_search_count(
+            all_tasks,
+            target_value=title,
+            key=_title_key,
+        )
+
+        index = result["index"]
+        steps = result["comparison_count"]
+
     else:
-        # linear search on the unsorted DB rows
-        matches, steps = linear_search(all_tasks, target_value=title, key=_title_key)
+        result = linear_search_count(
+            all_tasks,
+            target_value=title,
+            key=_title_key,
+        )
+
+        index = result["index"]
+        steps = result["comparison_count"]
+
+    if index == -1:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No task with title '{title}' found",
+        )
+
+    matches = [all_tasks[index]]
 
     return {
         "tasks": [
             {
-                "id":          t.id,
-                "title":       t.title,
+                "id": t.id,
+                "title": t.title,
                 "description": t.description,
-                "priority":    t.priority,
-                "due_date":    t.due_date,
-                "completed":   t.completed,
-                "project_id":  t.project_id,
+                "priority": t.priority,
+                "due_date": t.due_date,
+                "completed": t.completed,
+                "project_id": t.project_id,
             }
             for t in matches
         ],
-        "count":     len(matches),
-        "steps":     steps,
+        "count": len(matches),
+        "steps": steps,
         "algorithm": algo,
     }
 
@@ -183,25 +259,27 @@ def search_tasks(
 def list_tasks(
     sort: Optional[str] = Query(
         None,
-        description="Sort field. Currently supported: 'priority' (low→medium→high)",
+        description="Sort field. Currently supported: 'priority' (low->medium->high)",
     ),
+    response: Response = None,
     db: Session = Depends(get_db),
 ):
     """
     Return all tasks.
 
-    ?sort=priority — sorts using custom insertion_sort with weights
+    ?sort=priority — sorts using custom insertion_sort_count with weights
     low=1, medium=2, high=3.  The sort is performed in Python after fetching
     rows from the DB; no Python built-in sort is used.
 
-    The response includes an X-Sort-Comparisons header with the comparison count.
+    When sort=priority the response includes an X-Sort-Comparisons header
+    with the exact number of element-to-element comparisons performed.
     """
     tasks: List[Task] = db.query(Task).all()
 
     if sort == "priority":
-        tasks, _comparisons = insertion_sort(tasks, key=_priority_key)
-        # Note: comparisons available via insertion_sort_count module variable
-        # and via the X-Sort-Comparisons response header set in the endpoint
+        comparisons = insertion_sort_count(tasks, key=_priority_key)
+        if response is not None:
+            response.headers["X-Sort-Comparisons"] = str(comparisons)
 
     return tasks
 

@@ -1,154 +1,144 @@
 """
-algorithms/searching.py — Binary search and linear search implementations.
+algorithms/searching.py — Custom binary and linear search implementations.
 
-Rules:
-  - NO Python built-in sorted() or list.sort() anywhere in this file.
-  - binary_search requires a PRE-SORTED list (caller must sort first).
-  - linear_search works on any list in any order.
-  - Both use exact string matching (case-sensitive) on the extracted key value.
-  - Both return (list_of_matching_records, step_count).
-
-Public API:
-  binary_search(sorted_records, target_value, key)  -> (matches, steps)
-  linear_search(records,        target_value, key)  -> (matches, steps)
-  binary_search_count  : int  (updated after every binary_search call)
-  linear_search_count  : int  (updated after every linear_search call)
+Section 2 requirements:
+- No Python built-in sorted() or list.sort().
+- binary_search() works on an already-sorted list.
+- linear_search() works on any list.
+- Both return the INDEX of the first/located matching record.
+- -1 means "not found".
+- Separate *_count functions return comparison information.
 """
 
 from __future__ import annotations
-from typing import Any, Callable, List, Tuple
 
-# ---------------------------------------------------------------------------
-# Module-level step counters — updated on every call.
-# ---------------------------------------------------------------------------
-binary_search_count: int = 0
-linear_search_count: int = 0
+from typing import Any, Callable, List, Dict
 
 
 def binary_search(
     sorted_records: List[Any],
-    target_value: str,
+    target_value: Any,
     key: Callable[[Any], Any],
-) -> Tuple[List[Any], int]:
+) -> int:
     """
-    Binary search on a pre-sorted list for records whose key == target_value.
+    Search for target_value in a list already sorted by key.
 
-    Pre-condition: sorted_records MUST already be sorted ascending by key.
-                   Call insertion_sort() first if unsure.
-
-    Parameters
-    ----------
-    sorted_records : list
-        A list already sorted ascending by key(record).
-    target_value : str
-        The exact value to search for.
-    key : callable
-        Extracts the comparable string value from each record.
-
-    Returns
-    -------
-    (matches, steps) : tuple
-        matches – all records whose key exactly equals target_value
-        steps   – number of comparisons performed (including expansion)
-
-    Complexity
-    ----------
-    Best case  : O(1)       — target at midpoint
-    Average    : O(log n)
-    Worst case : O(log n + k)  where k = number of matching records
+    Returns:
+        index of a matching record
+        -1 if the target is not found
     """
-    global binary_search_count
 
-    arr = sorted_records
-    n = len(arr)
-    steps: int = 0
-    matches: List[Any] = []
+    low = 0
+    high = len(sorted_records) - 1
 
-    if n == 0:
-        binary_search_count = steps
-        return matches, steps
+    while low <= high:
+        mid = (low + high) // 2
+        mid_value = key(sorted_records[mid])
 
-    lo: int = 0
-    hi: int = n - 1
+        if mid_value == target_value:
+            return mid
 
-    while lo <= hi:
-        steps += 1
-        mid = (lo + hi) // 2
-        mid_val = key(arr[mid])
-
-        if mid_val == target_value:
-            # Found one match — now expand left and right to collect duplicates
-            matches.append(arr[mid])
-
-            # Expand left
-            left = mid - 1
-            while left >= 0:
-                steps += 1
-                if key(arr[left]) == target_value:
-                    matches.append(arr[left])
-                    left -= 1
-                else:
-                    break
-
-            # Expand right
-            right = mid + 1
-            while right < n:
-                steps += 1
-                if key(arr[right]) == target_value:
-                    matches.append(arr[right])
-                    right += 1
-                else:
-                    break
-
-            break  # done — all matches collected
-
-        elif mid_val < target_value:
-            lo = mid + 1
+        if mid_value < target_value:
+            low = mid + 1
         else:
-            hi = mid - 1
+            high = mid - 1
 
-    binary_search_count = steps
-    return matches, steps
+    return -1
 
 
 def linear_search(
     records: List[Any],
-    target_value: str,
+    target_value: Any,
     key: Callable[[Any], Any],
-) -> Tuple[List[Any], int]:
+) -> int:
     """
-    Linear search — scan every record in order, collect exact key matches.
+    Scan records from left to right.
 
-    Parameters
-    ----------
-    records : list
-        The items to search.  No ordering requirement.
-    target_value : str
-        The exact value to search for.
-    key : callable
-        Extracts the comparable string value from each record.
-
-    Returns
-    -------
-    (matches, steps) : tuple
-        matches – all records whose key exactly equals target_value
-        steps   – number of elements examined (always == len(records))
-
-    Complexity
-    ----------
-    Best case  : O(1)  — first element matches (but we scan all for completeness)
-    Average    : O(n)
-    Worst case : O(n)
+    Returns:
+        index of the first matching record
+        -1 if the target is not found
     """
-    global linear_search_count
 
-    steps: int = 0
-    matches: List[Any] = []
-
-    for record in records:
-        steps += 1
+    for index, record in enumerate(records):
         if key(record) == target_value:
-            matches.append(record)
+            return index
 
-    linear_search_count = steps
-    return matches, steps
+    return -1
+
+
+def binary_search_count(
+    sorted_records: List[Any],
+    target_value: Any,
+    key: Callable[[Any], Any],
+) -> Dict[str, int]:
+    """
+    Binary search with comparison counting.
+
+    One comparison is counted per loop iteration (each probe of the mid element).
+
+    Returns exactly:
+        {
+            "index": <found index or -1>,
+            "comparison_count": <number of comparisons>
+        }
+    """
+
+    low = 0
+    high = len(sorted_records) - 1
+    comparisons = 0
+
+    while low <= high:
+        mid = (low + high) // 2
+        mid_value = key(sorted_records[mid])
+
+        # Count one comparison per probe of the mid element.
+        comparisons += 1
+
+        if mid_value == target_value:
+            return {
+                "index": mid,
+                "comparison_count": comparisons,
+            }
+        elif mid_value < target_value:
+            low = mid + 1
+        else:
+            high = mid - 1
+
+    return {
+        "index": -1,
+        "comparison_count": comparisons,
+    }
+
+
+def linear_search_count(
+    records: List[Any],
+    target_value: Any,
+    key: Callable[[Any], Any],
+) -> Dict[str, int]:
+    """
+    Linear search with comparison counting.
+
+    Returns exactly:
+        {
+            "index": <found index or -1>,
+            "comparison_count": <number of comparisons>
+        }
+
+    For an absent value, comparison_count equals len(records).
+    """
+
+    comparisons = 0
+
+    for index, record in enumerate(records):
+        comparisons += 1
+
+        if key(record) == target_value:
+            return {
+                "index": index,
+                "comparison_count": comparisons,
+            }
+
+    return {
+        "index": -1,
+        "comparison_count": comparisons,
+    }

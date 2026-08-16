@@ -3,242 +3,771 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TaskFlow</title>
+  <title>TaskFlow — Task Management</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-  <!-- ===== Header ===== -->
-  <header class="site-header">
-    <div class="header-inner">
-      <h1 class="logo">&#9745; TaskFlow</h1>
-      <span id="cache-badge" class="cache-badge hidden">[cached]</span>
+  <!-- =====================================================
+       TOP NAVIGATION BAR
+       ===================================================== -->
+  <header class="topbar" role="banner">
+    <div class="topbar-inner">
+
+      <!-- Brand -->
+      <a class="brand" href="#" aria-label="TaskFlow home">
+        <span class="brand-icon" aria-hidden="true">TF</span>
+        <h1 class="brand-name">TaskFlow</h1>
+      </a>
+
+      <!-- Desktop navigation tabs -->
+      <nav class="topnav" aria-label="Main navigation">
+        <button type="button" class="nav-tab active" data-tab="tasks"
+                onclick="switchTab('tasks', this)"
+                aria-current="page">
+          <span class="tab-icon" aria-hidden="true">☰</span> Tasks
+        </button>
+        <button type="button" class="nav-tab" data-tab="create-task"
+                onclick="switchTab('create-task', this)">
+          <span class="tab-icon" aria-hidden="true">＋</span> New Task
+        </button>
+        <button type="button" class="nav-tab" data-tab="projects"
+                onclick="switchTab('projects', this)">
+          <span class="tab-icon" aria-hidden="true">◫</span> Projects
+        </button>
+        <button type="button" class="nav-tab" data-tab="users"
+                onclick="switchTab('users', this)">
+          <span class="tab-icon" aria-hidden="true">◯</span> Users
+        </button>
+      </nav>
+
+      <!-- Cached data warning -->
+      <span id="cache-badge" class="cache-pill hidden" role="status"
+            aria-live="polite">Cached data</span>
+
+      <!-- Theme toggle -->
+      <button type="button" id="theme-toggle-btn"
+              class="btn-theme-toggle"
+              onclick="toggleTheme()"
+              aria-label="Switch to dark mode"
+              title="Switch to dark mode">
+        ☀️
+      </button>
+
+      <!-- Auth: current user + logout (hidden until logged in) -->
+      <div id="auth-topbar" class="auth-topbar hidden" aria-label="Logged in user">
+        <span id="auth-username" class="auth-username"></span>
+        <button type="button" class="btn-logout" onclick="logoutUser()" aria-label="Log out">
+          ⏏ Logout
+        </button>
+      </div>
+
     </div>
   </header>
 
-  <!-- ===== Main layout ===== -->
-  <main class="layout">
+  <!-- Mobile navigation (scrollable, shown only on small screens) -->
+  <nav class="mobile-nav" aria-label="Mobile navigation">
+    <button type="button" class="nav-tab active" data-tab="tasks"
+            onclick="switchTab('tasks', this)">☰ Tasks</button>
+    <button type="button" class="nav-tab" data-tab="create-task"
+            onclick="switchTab('create-task', this)">＋ New Task</button>
+    <button type="button" class="nav-tab" data-tab="projects"
+            onclick="switchTab('projects', this)">◫ Projects</button>
+    <button type="button" class="nav-tab" data-tab="users"
+            onclick="switchTab('users', this)">◯ Users</button>
+  </nav>
 
-    <!-- ===== Left sidebar: Stats ===== -->
-    <aside class="sidebar">
-      <section class="card" id="stats-panel">
-        <h2 class="section-title">Stats</h2>
-        <div class="stat-row"><span class="stat-label">Total</span><span id="stat-total" class="stat-value">—</span></div>
-        <div class="stat-row"><span class="stat-label">Completed</span><span id="stat-completed" class="stat-value">—</span></div>
-        <div class="stat-row"><span class="stat-label">Pending</span><span id="stat-pending" class="stat-value">—</span></div>
-        <div class="stat-row"><span class="stat-label">Completion %</span><span id="stat-rate" class="stat-value">—</span></div>
-        <hr />
-        <div class="stat-row"><span class="stat-label priority-low">Low</span><span id="stat-low" class="stat-value">—</span></div>
-        <div class="stat-row"><span class="stat-label priority-medium">Medium</span><span id="stat-medium" class="stat-value">—</span></div>
-        <div class="stat-row"><span class="stat-label priority-high">High</span><span id="stat-high" class="stat-value">—</span></div>
-        <button class="btn btn-secondary btn-sm" onclick="loadStats()">Refresh</button>
-      </section>
+  <!-- =====================================================
+       APP SHELL  (sidebar + main content)
+       ===================================================== -->
+  <div class="app-shell" id="app-shell-wrapper">
 
-      <!-- Project filter -->
-      <section class="card">
-        <h2 class="section-title">Projects</h2>
-        <select id="filter-project" class="input-field" onchange="applyProjectFilter()">
-          <option value="">All projects</option>
-        </select>
-      </section>
-    </aside>
+    <!-- =================================================
+         SIDEBAR
+         ================================================= -->
+    <aside class="sidebar" aria-label="Dashboard sidebar">
 
-    <!-- ===== Main content ===== -->
-    <div class="content">
-
-      <!-- Quick-add bar -->
-      <section class="card quick-add-bar">
-        <h2 class="section-title">Quick-Add Task</h2>
-        <div class="quick-add-row">
-          <input
-            id="quick-add-input"
-            type="text"
-            class="input-field"
-            placeholder="e.g. &quot;fix critical bug next monday&quot;"
-          />
-          <select id="quick-add-project" class="input-field select-sm">
-            <option value="">Select project…</option>
-          </select>
-          <button class="btn btn-primary" onclick="submitQuickAdd()">Add</button>
+      <!-- ---- Stats panel ---- -->
+      <section class="card" aria-labelledby="stats-heading">
+        <div class="card-header">
+          <h2 class="card-title" id="stats-heading">
+            <span class="card-title-icon" aria-hidden="true">▦</span>
+            Overview
+          </h2>
+          <button type="button" class="btn-stats-refresh" onclick="loadStats()"
+                  aria-label="Refresh statistics">
+            ↻ Refresh
+          </button>
         </div>
-        <p id="quick-add-error" class="error-msg hidden"></p>
+
+        <!-- Four key metrics -->
+        <div class="card-body-sm">
+          <div class="stats-grid">
+            <div class="stat-chip" title="Total tasks">
+              <span class="stat-chip-label">Total</span>
+              <span class="stat-chip-value" id="stat-total">—</span>
+            </div>
+            <div class="stat-chip" title="Completed tasks">
+              <span class="stat-chip-label">Completed</span>
+              <span class="stat-chip-value" id="stat-completed">—</span>
+            </div>
+            <div class="stat-chip" title="Pending tasks">
+              <span class="stat-chip-label">Pending</span>
+              <span class="stat-chip-value" id="stat-pending">—</span>
+            </div>
+            <div class="stat-chip" title="Completion rate">
+              <span class="stat-chip-label">Rate</span>
+              <span class="stat-chip-value completion" id="stat-rate">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Completion progress bar -->
+        <div class="rate-bar-wrap">
+          <div class="rate-bar-row">
+            <span class="rate-bar-label">Completion</span>
+            <span class="rate-bar-pct" id="stat-rate-bar-pct">0%</span>
+          </div>
+          <div class="rate-bar-track" role="progressbar"
+               aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
+               aria-label="Completion progress">
+            <div class="rate-bar-fill" id="stat-rate-bar" style="width:0%"></div>
+          </div>
+        </div>
+
+        <!-- Priority breakdown -->
+        <div class="priority-breakdown">
+          <div class="priority-row">
+            <span class="priority-dot low"    aria-hidden="true"></span>
+            <span class="priority-name">Low</span>
+            <div class="priority-bar-track" aria-hidden="true">
+              <div class="priority-bar-fill low" id="pbar-low" style="width:0%"></div>
+            </div>
+            <span class="priority-count" id="stat-low">—</span>
+          </div>
+          <div class="priority-row">
+            <span class="priority-dot medium" aria-hidden="true"></span>
+            <span class="priority-name">Medium</span>
+            <div class="priority-bar-track" aria-hidden="true">
+              <div class="priority-bar-fill medium" id="pbar-medium" style="width:0%"></div>
+            </div>
+            <span class="priority-count" id="stat-medium">—</span>
+          </div>
+          <div class="priority-row">
+            <span class="priority-dot high"   aria-hidden="true"></span>
+            <span class="priority-name">High</span>
+            <div class="priority-bar-track" aria-hidden="true">
+              <div class="priority-bar-fill high" id="pbar-high" style="width:0%"></div>
+            </div>
+            <span class="priority-count" id="stat-high">—</span>
+          </div>
+        </div>
       </section>
 
-      <!-- Tabs -->
-      <div class="tab-bar">
-        <button class="tab-btn active" data-tab="tasks" onclick="switchTab('tasks', this)">Tasks</button>
-        <button class="tab-btn" data-tab="create-task" onclick="switchTab('create-task', this)">New Task</button>
-        <button class="tab-btn" data-tab="projects" onclick="switchTab('projects', this)">Projects</button>
-        <button class="tab-btn" data-tab="users" onclick="switchTab('users', this)">Users</button>
+      <!-- ---- Project filter panel ---- -->
+      <section class="card" aria-labelledby="projects-filter-heading">
+        <div class="card-header">
+          <h2 class="card-title" id="projects-filter-heading">
+            <span class="card-title-icon" aria-hidden="true">◫</span>
+            Projects
+          </h2>
+        </div>
+        <p class="sidebar-filter-hint">Click a project to filter the task list.</p>
+
+        <!-- Filter list built by JS -->
+        <div class="project-filter-list" id="project-filter-list" role="listbox"
+             aria-label="Filter tasks by project">
+          <!-- "All projects" option is always first — built by JS -->
+        </div>
+      </section>
+
+    </aside><!-- /sidebar -->
+
+
+    <!-- =================================================
+         MAIN CONTENT
+         ================================================= -->
+    <main class="main-content" id="main-content" role="main">
+
+      <!-- ================================================
+           QUICK-ADD BAR (always visible above tabs)
+           ================================================ -->
+      <div class="quick-add-card" aria-labelledby="qa-heading" aria-describedby="qa-desc">
+        <div class="quick-add-label">
+          <span class="quick-add-label-text" id="qa-heading">⚡ Quick-Add Task</span>
+          <span class="quick-add-hint">
+            Type a plain-English description — priority and date are extracted automatically.
+          </span>
+        </div>
+
+        <!-- Inline description of what Quick-Add does -->
+        <p class="quick-add-desc" id="qa-desc">
+          Describe a task in plain text. Include keywords like
+          <strong>urgent</strong> or <strong>asap</strong> (high priority),
+          <strong>whenever</strong> (low priority), and dates like
+          <strong>today</strong>, <strong>tomorrow</strong>, or
+          <strong>next friday</strong>.
+          Example: <em>"fix login bug urgent next monday"</em>
+        </p>
+
+        <div class="quick-add-row">
+          <!-- Description input with its own sub-label -->
+          <div class="quick-add-input-wrap">
+            <label class="quick-add-field-label" for="quick-add-input">
+              Task description
+            </label>
+            <input
+              id="quick-add-input"
+              type="text"
+              class="quick-add-input"
+              placeholder='e.g. "fix login bug urgent next friday"'
+              aria-label="Task description for quick-add"
+              aria-describedby="qa-desc"
+              autocomplete="off"
+            />
+          </div>
+          <!-- Project selector with its own sub-label -->
+          <div class="quick-add-project-wrap">
+            <label class="quick-add-field-label" for="quick-add-project">
+              Add to project
+            </label>
+            <select id="quick-add-project" class="quick-add-select"
+                    aria-label="Select project for quick-add">
+              <option value="">Select project…</option>
+            </select>
+          </div>
+          <!-- Add button aligned to input bottom -->
+          <div class="quick-add-btn-wrap">
+            <button type="button" class="btn-add" onclick="submitQuickAdd()"
+                    aria-label="Add task using quick-add">
+              ＋ Add Task
+            </button>
+          </div>
+        </div>
+        <p id="quick-add-error" class="quick-add-error hidden" role="alert"></p>
       </div>
 
-      <!-- ===== TAB: Tasks ===== -->
-      <section id="tab-tasks" class="tab-content card">
-        <!-- Sort + search controls -->
-        <div class="controls-row">
-          <div class="control-group">
-            <label class="control-label">Sort by</label>
-            <select id="sort-field" class="input-field select-sm">
-              <option value="">— None —</option>
-              <option value="priority">Priority</option>
-              <option value="due_date">Due Date</option>
-              <option value="title">Title</option>
-            </select>
-            <select id="sort-order" class="input-field select-sm">
-              <option value="asc">Asc</option>
-              <option value="desc">Desc</option>
-            </select>
-            <button class="btn btn-secondary btn-sm" onclick="sortTasks()">Sort</button>
+
+      <!-- ================================================
+           TASKS TAB
+           ================================================ -->
+      <section id="tab-tasks" class="tab-content card" aria-label="Task list">
+
+        <!-- Toolbar -->
+        <div class="toolbar" role="toolbar" aria-label="Task controls">
+
+          <!-- Sort group -->
+          <div class="toolbar-group">
+            <span class="toolbar-label" id="sort-group-label">Sort tasks</span>
+            <div class="toolbar-controls">
+              <select id="sort-field" class="input-field-sm"
+                      aria-labelledby="sort-group-label"
+                      style="width:160px;">
+                <option value="">— No sort —</option>
+                <option value="priority">Priority (low → high)</option>
+              </select>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="sortTasks()"
+                      aria-label="Apply sort">
+                Apply
+              </button>
+            </div>
+            <span class="toolbar-hint">Uses insertion sort on the server</span>
           </div>
-          <div class="control-group">
-            <input id="search-input" type="text" class="input-field" placeholder="Search tasks…" />
-            <select id="search-field" class="input-field select-sm">
-              <option value="title">Title</option>
-              <option value="description">Description</option>
-            </select>
-            <select id="search-method" class="input-field select-sm">
-              <option value="linear">Linear</option>
-              <option value="binary">Binary</option>
-            </select>
-            <button class="btn btn-secondary btn-sm" onclick="searchTasks()">Search</button>
-            <button class="btn btn-ghost btn-sm" onclick="clearSearch()">Clear</button>
+
+          <div class="toolbar-divider" aria-hidden="true"></div>
+
+          <!-- Search group -->
+          <div class="toolbar-group">
+            <span class="toolbar-label" id="search-group-label">Search by exact title</span>
+            <div class="toolbar-controls">
+              <input id="search-input" type="text"
+                     class="input-field-sm"
+                     style="width:200px;"
+                     placeholder="Type the full task title…"
+                     aria-label="Search by exact task title"
+                     aria-describedby="search-hint"
+                     autocomplete="off" />
+              <select id="search-method" class="input-field-sm"
+                      aria-label="Choose search algorithm"
+                      style="width:140px;">
+                <option value="linear">Linear Search</option>
+                <option value="binary">Binary Search</option>
+              </select>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="searchTasks()"
+                      aria-label="Run search">
+                Search
+              </button>
+              <button type="button" class="btn btn-sm btn-ghost" onclick="clearSearch()"
+                      aria-label="Clear search and show all tasks">
+                Clear
+              </button>
+            </div>
+            <span class="toolbar-hint" id="search-hint">
+              Exact match only · Binary Search uses sorted index
+            </span>
+          </div>
+
+        </div><!-- /toolbar -->
+
+        <!-- Algorithm info banner (hidden until sort/search runs) -->
+        <div id="algo-info" class="algo-banner hidden" role="status" aria-live="polite">
+          <span class="algo-banner-icon">ℹ</span>
+          <span id="algo-info-text"></span>
+        </div>
+
+        <!-- Task list -->
+        <div id="task-list" class="task-list-body" aria-label="Tasks" aria-live="polite">
+          <div class="empty-state">
+            <span class="empty-icon" aria-hidden="true">📋</span>
+            <p class="empty-title">Loading tasks…</p>
           </div>
         </div>
 
-        <p id="algo-info" class="algo-info hidden"></p>
+      </section><!-- /tab-tasks -->
 
-        <div id="task-list" class="task-grid">
-          <p class="empty-msg">Loading tasks…</p>
+
+      <!-- ================================================
+           NEW TASK TAB
+           ================================================ -->
+      <section id="tab-create-task" class="tab-content card hidden"
+               aria-label="Create new task">
+
+        <div class="card-header">
+          <h2 class="card-title" id="new-task-heading">
+            <span class="card-title-icon" aria-hidden="true">＋</span>
+            New Task — Full Form
+          </h2>
         </div>
-      </section>
 
-      <!-- ===== TAB: New Task form ===== -->
-      <section id="tab-create-task" class="tab-content card hidden">
-        <h2 class="section-title">Create New Task</h2>
-        <form id="create-task-form" onsubmit="submitCreateTask(event)">
-          <div class="form-group">
-            <label for="new-title">Title <span class="required">*</span></label>
-            <input id="new-title" type="text" class="input-field" required maxlength="200" />
+        <div class="card-body">
+          <!-- Distinguish from Quick-Add -->
+          <p class="new-task-intro">
+            Use this form to create a task with full control over every field:
+            title, description, priority, due date, and project.
+            For fast entry using plain text, use
+            <strong>⚡ Quick-Add </strong> at the top of the page.
+          </p>
+
+          <form id="create-task-form" class="form-wrap"
+                onsubmit="submitCreateTask(event)"
+                aria-labelledby="new-task-heading"
+                novalidate>
+
+            <div class="form-group">
+              <label class="form-label" for="new-title">
+                Title <span class="required" aria-label="required">*</span>
+              </label>
+              <input id="new-title" type="text" class="input-field"
+                     required maxlength="200"
+                     placeholder="What needs to be done?" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="new-desc">Description</label>
+              <textarea id="new-desc" class="input-field"
+                        rows="3"
+                        placeholder="Optional notes or context…"></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="new-priority">Priority</label>
+                <select id="new-priority" class="input-field">
+                  <option value="low">Low</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="new-due">Due Date</label>
+                <input id="new-due" type="date" class="input-field" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="new-project">
+                  Project <span class="required" aria-label="required">*</span>
+                </label>
+                <select id="new-project" class="input-field" required>
+                  <option value="">Select project…</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-check">
+                <input id="new-completed" type="checkbox" />
+                Mark as completed
+              </label>
+            </div>
+
+            <p id="create-task-error" class="form-error hidden" role="alert"></p>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary btn-md">
+                ＋ Create Task
+              </button>
+              <button type="button" class="btn btn-ghost btn-md"
+                      onclick="document.getElementById('create-task-form').reset(); clearError('create-task-error');">
+                Clear
+              </button>
+            </div>
+
+          </form>
+        </div>
+
+      </section><!-- /tab-create-task -->
+
+
+      <!-- ================================================
+           PROJECTS TAB
+           ================================================ -->
+      <section id="tab-projects" class="tab-content card hidden"
+               aria-label="Projects">
+
+        <div class="card-header">
+          <h2 class="card-title" id="projects-heading">
+            <span class="card-title-icon" aria-hidden="true">◫</span>
+            Projects
+          </h2>
+          <button type="button" class="btn btn-sm btn-primary" onclick="toggleNewProjectForm()"
+                  aria-expanded="false" aria-controls="new-project-form"
+                  id="new-project-btn">
+            ＋ New Project
+          </button>
+        </div>
+
+        <div class="card-body">
+
+          <!-- Inline create-project form -->
+          <div id="new-project-form" class="inline-form hidden"
+               aria-labelledby="projects-heading">
+            <form onsubmit="submitCreateProject(event)" novalidate>
+              <div class="inline-form-row">
+                <div class="form-group">
+                  <label class="form-label" for="proj-name">
+                    Name <span class="required" aria-label="required">*</span>
+                  </label>
+                  <input id="proj-name" type="text" class="input-field"
+                         placeholder="Project name" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="proj-desc">Description</label>
+                  <input id="proj-desc" type="text" class="input-field"
+                         placeholder="Optional description" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="proj-owner">
+                    Owner <span class="required" aria-label="required">*</span>
+                  </label>
+                  <select id="proj-owner" class="input-field" required>
+                    <option value="">Select owner…</option>
+                  </select>
+                </div>
+                <div class="form-group" style="justify-content:flex-end; padding-top:22px;">
+                  <button type="submit" class="btn btn-primary btn-md">
+                    Create
+                  </button>
+                </div>
+              </div>
+              <p id="create-project-error" class="form-error hidden" role="alert"></p>
+            </form>
           </div>
-          <div class="form-group">
-            <label for="new-desc">Description</label>
-            <textarea id="new-desc" class="input-field" rows="3"></textarea>
+
+          <!-- Project list -->
+          <div id="project-list" class="item-list" aria-label="Project list" aria-live="polite">
+            <div class="empty-state">
+              <span class="empty-icon" aria-hidden="true">◫</span>
+              <p class="empty-title">Loading projects…</p>
+            </div>
           </div>
+
+        </div>
+      </section><!-- /tab-projects -->
+
+
+      <!-- ================================================
+           USERS TAB
+           ================================================ -->
+      <section id="tab-users" class="tab-content card hidden"
+               aria-label="Users">
+
+        <div class="card-header">
+          <h2 class="card-title" id="users-heading">
+            <span class="card-title-icon" aria-hidden="true">◯</span>
+            Users
+          </h2>
+          <button type="button" class="btn btn-sm btn-primary" onclick="toggleNewUserForm()"
+                  aria-expanded="false" aria-controls="new-user-form"
+                  id="new-user-btn">
+            ＋ New User
+          </button>
+        </div>
+
+        <div class="card-body">
+
+          <!-- Inline create-user form -->
+          <div id="new-user-form" class="inline-form hidden"
+               aria-labelledby="users-heading">
+            <form onsubmit="submitCreateUser(event)" novalidate>
+              <div class="inline-form-row">
+                <div class="form-group">
+                  <label class="form-label" for="user-name">
+                    Full Name <span class="required" aria-label="required">*</span>
+                  </label>
+                  <input id="user-name" type="text" class="input-field"
+                         placeholder="Jane Smith" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="user-email">
+                    Email <span class="required" aria-label="required">*</span>
+                  </label>
+                  <input id="user-email" type="email" class="input-field"
+                         placeholder="jane@example.com" required />
+                </div>
+                <div class="form-group" style="justify-content:flex-end; padding-top:22px;">
+                  <button type="submit" class="btn btn-primary btn-md">
+                    Create
+                  </button>
+                </div>
+              </div>
+              <p id="create-user-error" class="form-error hidden" role="alert"></p>
+            </form>
+          </div>
+
+          <!-- User list -->
+          <div id="user-list" class="item-list" aria-label="User list" aria-live="polite">
+            <div class="empty-state">
+              <span class="empty-icon" aria-hidden="true">◯</span>
+              <p class="empty-title">Loading users…</p>
+            </div>
+          </div>
+
+        </div>
+      </section><!-- /tab-users -->
+
+    </main><!-- /main-content -->
+  </div><!-- /app-shell -->
+
+
+  <!-- =====================================================
+       EDIT TASK MODAL
+       ===================================================== -->
+  <div id="edit-modal" class="modal-overlay hidden"
+       role="dialog" aria-modal="true" aria-labelledby="edit-modal-title"
+       onclick="closeEditModal(event)">
+    <div class="modal-box">
+
+      <div class="modal-header">
+        <h2 class="modal-title" id="edit-modal-title">Edit Task</h2>
+        <button type="button" class="modal-close"
+                onclick="document.getElementById('edit-modal').classList.add('hidden')"
+                aria-label="Close edit dialog">
+          ✕
+        </button>
+      </div>
+
+      <form id="edit-task-form" onsubmit="submitEditTask(event)" novalidate>
+        <input id="edit-task-id" type="hidden" />
+
+        <div class="modal-body">
+
+          <div class="form-group">
+            <label class="form-label" for="edit-title">Title</label>
+            <input id="edit-title" type="text" class="input-field"
+                   required maxlength="200" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="edit-desc">Description</label>
+            <textarea id="edit-desc" class="input-field" rows="3"></textarea>
+          </div>
+
           <div class="form-row">
             <div class="form-group">
-              <label for="new-priority">Priority</label>
-              <select id="new-priority" class="input-field">
+              <label class="form-label" for="edit-priority">Priority</label>
+              <select id="edit-priority" class="input-field">
                 <option value="low">Low</option>
-                <option value="medium" selected>Medium</option>
+                <option value="medium">Medium</option>
                 <option value="high">High</option>
               </select>
             </div>
             <div class="form-group">
-              <label for="new-due">Due Date</label>
-              <input id="new-due" type="date" class="input-field" />
-            </div>
-            <div class="form-group">
-              <label for="new-project">Project <span class="required">*</span></label>
-              <select id="new-project" class="input-field" required>
-                <option value="">Select project…</option>
-              </select>
+              <label class="form-label" for="edit-due">Due Date</label>
+              <input id="edit-due" type="date" class="input-field" />
             </div>
           </div>
-          <div class="form-group checkbox-group">
-            <label><input id="new-completed" type="checkbox" /> Mark as completed</label>
-          </div>
-          <p id="create-task-error" class="error-msg hidden"></p>
-          <button type="submit" class="btn btn-primary">Create Task</button>
-        </form>
-      </section>
 
-      <!-- ===== TAB: Projects ===== -->
-      <section id="tab-projects" class="tab-content card hidden">
-        <div class="tab-header">
-          <h2 class="section-title">Projects</h2>
-          <button class="btn btn-primary btn-sm" onclick="toggleNewProjectForm()">+ New Project</button>
-        </div>
-
-        <form id="new-project-form" class="hidden sub-form" onsubmit="submitCreateProject(event)">
-          <div class="form-row">
-            <input id="proj-name" type="text" class="input-field" placeholder="Project name" required />
-            <input id="proj-desc" type="text" class="input-field" placeholder="Description (optional)" />
-            <select id="proj-owner" class="input-field" required>
-              <option value="">Owner…</option>
-            </select>
-            <button type="submit" class="btn btn-primary btn-sm">Create</button>
-          </div>
-          <p id="create-project-error" class="error-msg hidden"></p>
-        </form>
-
-        <div id="project-list" class="item-list">
-          <p class="empty-msg">Loading projects…</p>
-        </div>
-      </section>
-
-      <!-- ===== TAB: Users ===== -->
-      <section id="tab-users" class="tab-content card hidden">
-        <div class="tab-header">
-          <h2 class="section-title">Users</h2>
-          <button class="btn btn-primary btn-sm" onclick="toggleNewUserForm()">+ New User</button>
-        </div>
-
-        <form id="new-user-form" class="hidden sub-form" onsubmit="submitCreateUser(event)">
-          <div class="form-row">
-            <input id="user-name" type="text" class="input-field" placeholder="Full name" required />
-            <input id="user-email" type="email" class="input-field" placeholder="Email address" required />
-            <button type="submit" class="btn btn-primary btn-sm">Create</button>
-          </div>
-          <p id="create-user-error" class="error-msg hidden"></p>
-        </form>
-
-        <div id="user-list" class="item-list">
-          <p class="empty-msg">Loading users…</p>
-        </div>
-      </section>
-
-    </div><!-- /content -->
-  </main>
-
-  <!-- ===== Edit Task Modal ===== -->
-  <div id="edit-modal" class="modal-overlay hidden" onclick="closeEditModal(event)">
-    <div class="modal-box">
-      <h2 class="section-title">Edit Task</h2>
-      <form id="edit-task-form" onsubmit="submitEditTask(event)">
-        <input id="edit-task-id" type="hidden" />
-        <div class="form-group">
-          <label>Title</label>
-          <input id="edit-title" type="text" class="input-field" required maxlength="200" />
-        </div>
-        <div class="form-group">
-          <label>Description</label>
-          <textarea id="edit-desc" class="input-field" rows="3"></textarea>
-        </div>
-        <div class="form-row">
           <div class="form-group">
-            <label>Priority</label>
-            <select id="edit-priority" class="input-field">
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
+            <label class="form-check">
+              <input id="edit-completed" type="checkbox" />
+              Mark as completed
+            </label>
           </div>
-          <div class="form-group">
-            <label>Due Date</label>
-            <input id="edit-due" type="date" class="input-field" />
-          </div>
+
+          <p id="edit-error" class="form-error hidden" role="alert"></p>
+
+        </div><!-- /modal-body -->
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost btn-md"
+                  onclick="document.getElementById('edit-modal').classList.add('hidden')">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary btn-md">
+            Save Changes
+          </button>
         </div>
-        <div class="form-group checkbox-group">
-          <label><input id="edit-completed" type="checkbox" /> Completed</label>
-        </div>
-        <p id="edit-error" class="error-msg hidden"></p>
-        <div class="modal-actions">
-          <button type="submit" class="btn btn-primary">Save</button>
-          <button type="button" class="btn btn-ghost" onclick="document.getElementById('edit-modal').classList.add('hidden')">Cancel</button>
-        </div>
+
       </form>
     </div>
-  </div>
+  </div><!-- /edit-modal -->
+
+  <!-- =====================================================
+       LOGIN / REGISTER SCREEN
+       Shown when no valid session exists.
+       Hidden after successful login.
+       ===================================================== -->
+  <div id="login-screen" class="login-overlay hidden" role="dialog"
+       aria-modal="true" aria-labelledby="login-screen-title">
+    <div class="login-card">
+      <button
+        id="login-theme-toggle-btn"
+        class="btn-theme-toggle login-theme-toggle"
+        type="button"
+        onclick="toggleTheme()"
+        aria-label="Switch to dark mode"
+        title="Switch to dark mode"
+      >
+        ☀️
+      </button>
+
+
+      <!-- Brand header -->
+      <div class="login-brand">
+        <span class="login-brand-icon" aria-hidden="true">TF</span>
+        <span class="login-brand-name">TaskFlow</span>
+      </div>
+
+      <!-- Tab switcher: Login | Register -->
+      <div class="login-tabs" role="tablist" aria-label="Login or Register">
+        <button type="button" id="tab-btn-login" class="login-tab active" role="tab"
+                aria-selected="true" aria-controls="login-pane"
+                onclick="showLoginPane()">Sign In</button>
+        <button type="button" id="tab-btn-register" class="login-tab" role="tab"
+                aria-selected="false" aria-controls="register-pane"
+                onclick="showRegisterPane()">Create Account</button>
+      </div>
+
+      <!-- ── LOGIN PANE ── -->
+      <div id="login-pane" role="tabpanel" aria-labelledby="tab-btn-login">
+        <form id="login-form" onsubmit="submitLogin(event)" novalidate>
+          <div class="login-field">
+            <label class="login-label" for="login-email">Email</label>
+            <input id="login-email" type="email" class="login-input"
+                   placeholder="you@example.com" autocomplete="email"
+                   required aria-required="true" />
+          </div>
+          <div class="login-field">
+            <label class="login-label" for="login-password">Password</label>
+            <input id="login-password" type="password" class="login-input"
+                   placeholder="Your password" autocomplete="current-password"
+                   required aria-required="true" />
+          </div>
+          <p id="login-error" class="login-error hidden" role="alert"></p>
+          <p id="register-success-login" class="login-success hidden" role="status"></p>
+          <button type="submit" class="btn-login-submit" id="login-submit-btn">
+            Sign In
+          </button>
+          <div style="text-align:center;margin-top:0.75rem;">
+            <button type="button" class="login-back-link"
+                    onclick="showForgotPane()">Forgot Password?</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ── REGISTER PANE ── -->
+      <div id="register-pane" role="tabpanel"
+           aria-labelledby="tab-btn-register" class="hidden">
+        <form id="register-form" onsubmit="submitRegister(event)" novalidate>
+          <div class="login-field">
+            <label class="login-label" for="reg-name">Full Name</label>
+            <input id="reg-name" type="text" class="login-input"
+                   placeholder="Jane Smith" autocomplete="name"
+                   required aria-required="true" />
+          </div>
+          <div class="login-field">
+            <label class="login-label" for="reg-email">Email</label>
+            <input id="reg-email" type="email" class="login-input"
+                   placeholder="you@example.com" autocomplete="email"
+                   required aria-required="true" />
+          </div>
+          <div class="login-field">
+            <label class="login-label" for="reg-password">Password
+              <span class="login-hint">(min 8 characters)</span>
+            </label>
+            <input id="reg-password" type="password" class="login-input"
+                   placeholder="Choose a password" autocomplete="new-password"
+                   required aria-required="true" minlength="8" />
+          </div>
+          <p id="register-error" class="login-error hidden" role="alert"></p>
+          <p id="register-success" class="login-success hidden" role="status"></p>
+          <button type="submit" class="btn-login-submit" id="register-submit-btn">
+            Create Account
+          </button>
+        </form>
+      </div>
+
+      <!-- ── FORGOT PASSWORD PANE ── -->
+      <div id="forgot-pane" role="tabpanel" class="hidden">
+
+        <!-- Step 1: enter email address -->
+        <div id="forgot-step-email">
+          <p style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.5;">
+            Enter your registered email. In development mode the reset token
+            will appear in the server console and be returned in the API response.
+          </p>
+          <div class="login-field">
+            <label class="login-label" for="forgot-email">Email</label>
+            <input id="forgot-email" type="email" class="login-input"
+                   placeholder="you@example.com" autocomplete="email" />
+          </div>
+          <p id="forgot-error" class="login-error hidden" role="alert"></p>
+          <p id="forgot-info"  class="login-success hidden" role="status"></p>
+          <button type="button" class="btn-login-submit" id="forgot-submit-btn"
+                  onclick="submitForgotPassword()">Send Reset Token</button>
+        </div>
+
+        <!-- Step 2: enter token + new password (shown after step 1 succeeds) -->
+        <div id="forgot-step-reset" class="hidden">
+          <div class="login-field">
+            <label class="login-label" for="reset-token">Reset Token
+              <span class="login-hint">(from server console)</span>
+            </label>
+            <input id="reset-token" type="text" class="login-input"
+                   placeholder="Paste token here" autocomplete="off" />
+          </div>
+          <div class="login-field">
+            <label class="login-label" for="reset-new-password">New Password
+              <span class="login-hint">(min 8 characters)</span>
+            </label>
+            <input id="reset-new-password" type="password" class="login-input"
+                   placeholder="New password" autocomplete="new-password"
+                   minlength="8" />
+          </div>
+          <p id="reset-error"   class="login-error hidden" role="alert"></p>
+          <p id="reset-success" class="login-success hidden" role="status"></p>
+          <button type="button" class="btn-login-submit" id="reset-submit-btn"
+                  onclick="submitResetPassword()">Set New Password</button>
+        </div>
+
+        <!-- Back link -->
+        <div style="text-align:center;margin-top:0.75rem;">
+          <button type="button" class="login-back-link"
+                  onclick="showLoginPane()">← Back to Sign In</button>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /login-screen -->
 
   <script src="app.js"></script>
 </body>

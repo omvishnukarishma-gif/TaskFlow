@@ -3,16 +3,29 @@ routers/quick_add.py — POST /tasks/quick-add endpoint.
 
 Processing order (strictly enforced):
   1. Validate the incoming request (Pydantic — description + project_id).
-  2. Verify the project exists in the database (→ 404 if not).
-  3. Parse the description with the deterministic parser.
-  4. Validate the generated task data through TaskCreate Pydantic schema.
+  2. Verify the project exists in the database (→ 422 if not found).
+  3. Build the role-based message structure (system + user roles).
+  4. Parse the description with the deterministic parser.
   5. Persist to the tasks table only after all validation succeeds.
 
-No LLM feature flag is implemented — the deterministic parser IS the
-implementation as required by the specification.
+Role-based structure
+--------------------
+The endpoint constructs an explicit role-based messages list before parsing:
+
+  messages = [
+      {"role": "system", "content": SYSTEM_ROLE},
+      {"role": "user",   "content": description},
+  ]
+
+This mirrors the structure of a real LLM prompt exchange.
+The deterministic parser then applies the system-role rules to the
+user-role message entirely offline — no network calls, no API keys.
+
+The due_date field stores the raw parser hint (e.g. "next friday",
+"tomorrow") exactly as matched — no calendar resolution is performed.
 """
 
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -20,8 +33,8 @@ from sqlalchemy.orm import Session
 
 from backend.dependencies import get_db
 from backend.models import Project, Task
-from backend.quick_add_parser import parse_quick_add, resolve_due_date
-from backend.schemas import TaskCreate, TaskOut
+from backend.quick_add_parser import SYSTEM_ROLE, parse_quick_add
+from backend.schemas import TaskOut
 
 router = APIRouter()
 
@@ -70,7 +83,8 @@ class QuickAddOut(TaskOut):
     description=(
         "Parse a natural-language description into a structured task using "
         "the deterministic parser (system + user role structure), then persist "
-        "it to the tasks table. Works completely offline — no API keys needed."
+        "it to the tasks table. Works completely offline — no API keys needed. "
+        "The due_date field stores the raw parser hint as-is (e.g. 'next friday')."
     ),
 )
 def quick_add_task(
@@ -80,48 +94,45 @@ def quick_add_task(
     """
     STEP 1 — Request is already validated by Pydantic (QuickAddRequest).
 
-    STEP 2 — Verify the project exists.
+    STEP 2 — Verify the project exists → 422 if not found.
     """
     if db.get(Project, payload.project_id) is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Project {payload.project_id} not found",
         )
 
     """
-    STEP 3 — Parse the description with the deterministic parser.
-    The parser applies system-role rules to the user-role message.
+    STEP 3 — Build the role-based message structure.
+    The system role encodes all parsing rules.
+    The user role is the raw free-text description from the caller.
+    This mirrors the structure of a real LLM prompt exchange.
     """
-    parsed = parse_quick_add(payload.description)
+    messages: List[dict] = [
+        {"role": "system", "content": SYSTEM_ROLE},
+        {"role": "user",   "content": payload.description},
+    ]
 
-    # Resolve the hint to a concrete date (if present)
-    resolved_date = resolve_due_date(parsed.due_date_hint)
-
     """
-    STEP 4 — Validate through TaskCreate Pydantic schema.
-    This ensures the generated priority/due_date are spec-compliant
-    before we touch the database.
+    STEP 4 — Parse the description with the deterministic parser.
+    The parser applies the system-role rules to the user-role message.
+    The due_date_hint is stored raw — no calendar resolution.
     """
-    task_data = TaskCreate(
-        title=parsed.title,
-        description=None,        # quick-add doesn't provide a description field
-        priority=parsed.priority,
-        due_date=resolved_date,
-        completed=False,
-        project_id=payload.project_id,
-    )
+    parsed = parse_quick_add(messages[1]["content"])
 
     """
     STEP 5 — Persist to the existing tasks table.
+    due_date stores the raw hint string exactly as returned by the parser
+    (e.g. "next friday", "tomorrow", "monday") or None if no date was found.
     Only reached if all prior validation passes.
     """
     task = Task(
-        title=task_data.title,
-        description=task_data.description,
-        priority=task_data.priority,
-        due_date=task_data.due_date,
-        completed=task_data.completed,
-        project_id=task_data.project_id,
+        title=parsed.title,
+        description=None,          # quick-add doesn't provide a separate description
+        priority=parsed.priority,
+        due_date=parsed.due_date_hint,   # raw hint, not a resolved YYYY-MM-DD date
+        completed=False,
+        project_id=payload.project_id,
     )
     db.add(task)
     db.commit()

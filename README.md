@@ -7,15 +7,27 @@ A full-stack task management application built with FastAPI, SQLAlchemy, and van
 ## Quick Start
 
 ```bash
-# From the project root, using the shared virtual environment
-Z:\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+# 1. Create and activate a virtual environment
+python -m venv venv
+venv\Scripts\activate          # Windows
+# source venv/bin/activate    # macOS / Linux
 
-# Seed sample data (first run only)
-Z:\Scripts\python.exe seed.py
+# 2. Install dependencies
+pip install -r requirements.txt
 
-# Open the frontend
-# Navigate to http://localhost:8000 in your browser
+# 3. Start the server (single process — FastAPI serves both API and frontend)
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+
+# 4. Seed sample data (first run only)
+python seed.py
+
+# 5. Open the frontend
+# Navigate to http://127.0.0.1:8000 in your browser
 ```
+
+> **Single-process run:** FastAPI serves both the REST API and the static
+> frontend from the same process on the same origin (`http://127.0.0.1:8000`).
+> There is no separate frontend build step or dev server required.
 
 ---
 
@@ -100,7 +112,8 @@ All relationships use `back_populates`. Cascade delete propagates user → proje
 | POST   | /tasks               | Create task                            | 201     | 404, 422      |
 | GET    | /tasks               | List all tasks (optional ?sort=priority)| 200    |               |
 | GET    | /tasks/stats         | SQL-aggregated statistics              | 200     |               |
-| GET    | /tasks/search        | Search by exact title                  | 200     |               |
+| GET    | /tasks/project-stats | Per-project stats (JOIN + GROUP BY)    | 200     |               |
+| GET    | /tasks/search        | Search by exact title                  | 200     | 404           |
 | GET    | /tasks/{id}          | Get task by ID                         | 200     | 404           |
 | PUT    | /tasks/{id}          | Update task                            | 200     | 404, 422      |
 | DELETE | /tasks/{id}          | Delete task                            | 200     | 404           |
@@ -122,9 +135,12 @@ All relationships use `back_populates`. Cascade delete propagates user → proje
 
 ### Algorithms Implemented
 
-#### `insertion_sort(records, key)` → `(sorted_list, comparisons)`
+#### `insertion_sort(records, key)` → `None` (mutates in place)
 
 A comparison-based sort that builds the sorted output one element at a time by inserting each new element into its correct position among the already-sorted prefix.
+
+**Mutates in place:** The input `records` list is sorted directly. The function returns `None`.
+The separate counting wrapper `insertion_sort_count(records, key)` returns the number of comparisons as a plain `int`.
 
 **How it works:**
 
@@ -148,7 +164,7 @@ Every element-to-element comparison increments the counter, including the final 
 | Best case    | O(n)   | n − 1 (already sorted)   |
 | Average case | O(n²)  | ≈ n²/4                   |
 | Worst case   | O(n²)  | n(n−1)/2 (reverse sorted)|
-| Space        | O(n)   | One copy of the list     |
+| Space        | O(1)   | In-place — no copy made  |
 
 **Priority integration** — `GET /tasks?sort=priority` maps priorities to integer weights before sorting:
 
@@ -160,7 +176,7 @@ This ensures the numeric order low → medium → high is produced correctly, re
 
 ---
 
-#### `binary_search(sorted_records, target_value, key)` → `(matches, steps)`
+#### `binary_search(sorted_records, target_value, key)` → `int (index or -1)`
 
 A divide-and-conquer search that repeatedly halves the search space.
 
@@ -174,12 +190,12 @@ while lo <= hi:
     steps += 1
     mid = (lo + hi) // 2
     if key(arr[mid]) == target:
-        collect arr[mid], expand left + right for duplicates
-        break
+        return mid
     elif key(arr[mid]) < target:
         lo = mid + 1
     else:
         hi = mid - 1
+return -1
 ```
 
 **Complexity:**
@@ -188,13 +204,13 @@ while lo <= hi:
 |--------------|-------------|
 | Best case    | O(1)        |
 | Average case | O(log n)    |
-| Worst case   | O(log n + k) where k = number of duplicates |
+| Worst case   | O(log n)    |
 
 ---
 
-#### `linear_search(records, target_value, key)` → `(matches, steps)`
+#### `linear_search(records, target_value, key)` → `int (index or -1)`
 
-Scans every element from left to right, collecting all exact matches.
+Scans elements from left to right and returns the index of the first exact match.
 
 **How it works:**
 
@@ -202,16 +218,17 @@ Scans every element from left to right, collecting all exact matches.
 for each record in records:
     steps += 1
     if key(record) == target:
-        collect record
+        return index   # stops at first match
+return -1
 ```
 
-Steps always equal `len(records)` regardless of where the target appears.
+For a found item, `steps` equals the position of the first match + 1. For an absent item, `steps` equals `len(records)` (every element examined).
 
 **Complexity:**
 
 | Case         | Time  |
 |--------------|-------|
-| Best case    | O(n)  |
+| Best case    | O(1)  |
 | Worst case   | O(n)  |
 
 ---
@@ -221,6 +238,8 @@ Steps always equal `len(records)` regardless of where the target appears.
 #### `GET /tasks?sort=priority`
 
 Returns all tasks sorted low → medium → high using `insertion_sort`. The custom sort is always called — no Python `sorted()` or `.sort()` is used anywhere in the algorithm modules or routes.
+
+The response includes an `X-Sort-Comparisons` header with the exact number of element-to-element comparisons performed by the sort.
 
 Example response (priority order guaranteed):
 
@@ -277,9 +296,9 @@ Runs `linear_search` on the unsorted DB rows.
 
 | n    | insertion_sort comparisons | sort time  | binary steps | binary time | linear steps | linear time |
 |------|---------------------------|------------|--------------|-------------|--------------|-------------|
-| 10   | 27                        | 0.016 ms   | 5            | 4.9 µs      | 10           | 4.1 µs      |
-| 500  | 63,863                    | 12.326 ms  | 10           | 8.7 µs      | 500          | 52.8 µs     |
-| 3000 | 2,315,018                 | 545.369 ms | 13           | 59.9 µs     | 3,000        | 1,615.7 µs  |
+| 10   | 27                        | 0.015 ms   | 5            | 5.1 µs      | 10           | 3.6 µs      |
+| 500  | 63,863                    | 15.291 ms  | 10           | 8.5 µs      | 500          | 52.1 µs     |
+| 3000 | 2,315,018                 | 545.039 ms | 13           | 8.8 µs      | 3,000        | 330.6 µs    |
 
 #### Interpretation — Is sorting first worthwhile for TaskFlow?
 
@@ -312,8 +331,8 @@ python check_algorithms.py
 Expected output ends with:
 
 ```
-Results: 61 passed, 0 failed
-ALL TESTS PASSED
+Results: 20 passed, 0 failed
+ALL REQUIRED ALGORITHM CHECKS PASSED
 ```
 
 Exit code 0 on success, 1 on any failure.
@@ -363,10 +382,11 @@ Returns HTTP 201 and the created task row (including `due_date_hint`).
 ### Processing order
 
 1. Validate the request (Pydantic `QuickAddRequest`).
-2. Verify the project exists → 404 if not.
+2. Verify the project exists → 422 if not found.
 3. Parse the description with the deterministic parser.
-4. Validate the generated task data through `TaskCreate` Pydantic schema.
-5. Persist to the existing `tasks` table only after all validation passes.
+4. Persist to the existing `tasks` table only after all validation passes.
+
+The `due_date` field stores the raw parser hint (e.g. `"next friday"`, `"tomorrow"`) exactly as matched — no calendar resolution is performed.
 
 ---
 
@@ -421,7 +441,7 @@ All examples show actual inputs sent to `POST /tasks/quick-add` and the exact pa
 ```
 Input:  "Fix login bug urgent next monday"
 Output: {
-  "title":         "Fix login bug  ",
+  "title":         "Fix login bug",
   "priority":      "high",
   "due_date_hint": "next monday"
 }
