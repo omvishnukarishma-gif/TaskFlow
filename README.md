@@ -17,6 +17,9 @@ pip install -r requirements.txt
 
 # 3. Start the server (single process — FastAPI serves both API and frontend)
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+### API Documentation
+
+After starting the server, open `http://127.0.0.1:8000/docs` to access the interactive FastAPI Swagger documentation.
 
 # 4. Seed sample data (first run only)
 python seed.py
