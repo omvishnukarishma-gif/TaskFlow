@@ -365,6 +365,9 @@ FastAPI auto-generates OpenAPI documentation at:
 - ReDoc:       `http://localhost:8000/redoc`
 
 ---
+## Git Submission
+
+This repository contains the complete TaskFlow application in a single public GitHub repository. The final submission includes the FastAPI backend, algorithms engine, AI Quick-Add parser, frontend dashboard, requirements file, benchmark/check scripts, and this README.
 
 ## Section 3 — AI Quick-Add
 
