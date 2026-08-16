@@ -17,6 +17,9 @@ pip install -r requirements.txt
 
 # 3. Start the server (single process — FastAPI serves both API and frontend)
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+### API Documentation
+
+After starting the server, open `http://127.0.0.1:8000/docs` to access the interactive FastAPI Swagger documentation.
 
 # 4. Seed sample data (first run only)
 python seed.py
@@ -362,6 +365,9 @@ FastAPI auto-generates OpenAPI documentation at:
 - ReDoc:       `http://localhost:8000/redoc`
 
 ---
+## Git Submission
+
+This repository contains the complete TaskFlow application in a single public GitHub repository. The final submission includes the FastAPI backend, algorithms engine, AI Quick-Add parser, frontend dashboard, requirements file, benchmark/check scripts, and this README.
 
 ## Section 3 — AI Quick-Add
 
