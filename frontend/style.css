@@ -2047,6 +2047,7 @@ select.input-field-sm {
   white-space: nowrap;
 }
 
+/* Theme toggle button in topbar */
 .btn-theme-toggle {
   display: inline-flex;
   align-items: center;
@@ -2059,25 +2060,7 @@ select.input-field-sm {
   cursor: pointer;
   font-size: 1rem;
   line-height: 1;
-  transition: background var(--transition-base), border-color var(--transition-base),
-            box-shadow var(--transition-base);
-  flex-shrink: 0;
-  margin-left: var(--space-2);
-} 
-
-.btn-theme-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-md);
-  border: 1.5px solid var(--border);
-  background: var(--surface);
-  cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
-  transition: background var(--transition-base), border-color var(--transition-base),
+ transition: background var(--transition-base), border-color var(--transition-base),
             box-shadow var(--transition-base);
   flex-shrink: 0;
   margin-left: var(--space-2);
@@ -2221,20 +2204,3 @@ select.input-field-sm {
 /* Scrollbar thumb in dark mode */
 [data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--border); }
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-
-/* --btn-secondary dark-mode fix ----------------------------------
-   In light mode, .btn-secondary uses --gray-100 / --gray-200 as
-   backgrounds.  Those raw gray variables are NOT overridden by the
-   dark token block, so they stay near-white (#f3f4f6 / #e5e7eb),
-   making the button appear as a solid white rectangle in dark mode.
-   Fix: map to the existing semantic tokens used throughout the dark UI.
-   ---------------------------------------------------------------- */
-[data-theme="dark"] .btn-secondary {
-  background:   var(--surface-raised);
-  color:        var(--text-primary);
-  border-color: var(--border);
-}
-[data-theme="dark"] .btn-secondary:hover {
-  background:   var(--border);
-  color:        var(--text-primary);
-}

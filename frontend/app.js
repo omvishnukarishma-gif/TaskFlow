@@ -611,30 +611,28 @@ function loadTasksFromCache() {
 // TASKS — load, filter, render
 // ============================================================
 async function loadTasks() {
-  // Show cached data immediately so the list is never blank while fetching
-  const cacheBadge = document.getElementById("cache-badge");
-  const cached = loadTasksFromCache();
-  if (cached) {
-    allTasks = cached;
-    cacheBadge.classList.remove("hidden");
-    renderTasks(filterByProject(allTasks));
-  }
-
   const result = await apiFetch("/tasks");
+  const cacheBadge = document.getElementById("cache-badge");
 
   if (result.ok && Array.isArray(result.data)) {
     allTasks = result.data;
     saveTasksToCache(allTasks);
     cacheBadge.classList.add("hidden");
     renderTasks(filterByProject(allTasks));
-  } else if (!cached) {
-    renderTasksEmpty(
-      "📡",
-      "Could not reach the server",
-      "No cached data available. Start the server and refresh."
-    );
+  } else {
+    const cached = loadTasksFromCache();
+    if (cached) {
+      allTasks = cached;
+      cacheBadge.classList.remove("hidden");
+      renderTasks(filterByProject(allTasks));
+    } else {
+      renderTasksEmpty(
+        "📡",
+        "Could not reach the server",
+        "No cached data available. Start the server and refresh."
+      );
+    }
   }
-  // If live fetch failed but cache was shown, leave the cache rendering and badge visible
 
   loadStats();
 }
@@ -1040,7 +1038,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ============================================================
-// SORT  (GET /tasks?sort=priority — insertion sort endpoint)
+// SORT  (GET /tasks?sort=priority — tion sinserort endpoint)
 // ============================================================
 async function sortTasks() {
   const field = document.getElementById("sort-field").value;
