@@ -356,7 +356,21 @@ main
 ```
 
 ---
+## Verification Results
 
+The following verification scripts were executed locally against the running TaskFlow API.
+
+| Verification Area | Script | Result |
+|---|---|---|
+| Core API, CRUD, database persistence, statistics, middleware and CORS | `verify_section1.py` | 68 passed, 0 failed |
+| Priority sorting, binary search, linear search and regression checks | `verify_section2.py` | 51 passed, 0 failed |
+| Quick-Add API, validation, persistence and integration checks | `verify_section3.py` | 91 passed, 0 failed |
+| Offline Quick-Add parser regression and edge cases | `test_parser_offline.py` | 79 passed, 0 failed |
+| Standalone sorting and searching correctness checks | `check_algorithms.py` | 20 passed, 0 failed |
+
+The three section verification scripts completed with no failed checks. The parser and algorithm scripts also completed with no failed checks.
+
+**Note:** These are results from the listed custom verification scripts, not a pytest test count. Parser and algorithm checks overlap with the corresponding section verification coverage and should not be added to the section totals.
 ## Interactive Docs
 
 FastAPI auto-generates OpenAPI documentation at:
@@ -366,7 +380,23 @@ FastAPI auto-generates OpenAPI documentation at:
 
 ---
 ## Git Submission
+### Git Workflow Evidence
 
+The repository history records separate commits for the core backend and frontend, algorithms engine, Quick-Add parser, and final submission documentation. The algorithms, Quick-Add, and final-submission work appears in feature branches with merge commits into the main development history.
+
+Verified Git history includes:
+- Algorithms merge: `42af35b`
+- Quick-Add merge: `35d8dc1`
+- Final-submission merge: `f1e186b`
+- Current main commit: `2bf6a9c`
+
+The repository's commit graph can be inspected with:
+
+```bash
+git --no-pager log --oneline --graph --decorate --all -25
+```
+
+These commits demonstrate feature-based development and merge history; they do not, by themselves, establish pull-request reviews or multi-person collaboration.
 This repository contains the complete TaskFlow application in a single public GitHub repository. The final submission includes the FastAPI backend, algorithms engine, AI Quick-Add parser, frontend dashboard, requirements file, benchmark/check scripts, and this README.
 
 ## Section 3 — AI Quick-Add
@@ -438,7 +468,41 @@ At scale (10,000 tasks/day), this would cost approximately $0.50–$2.00/day on 
 A real LLM would handle ambiguous phrasings more gracefully (e.g. "sometime next week if possible"), but would introduce non-determinism. For TaskFlow's graded requirements — where specific inputs must produce specific exact outputs — determinism is mandatory. The rule-based parser passes all regression tests 100% of the time.
 
 ---
+### Offline Parser Tests
 
+The deterministic Quick-Add parser can be tested locally without starting the API server or connecting to an external LLM service.
+
+Run the parser checks:
+
+```bash
+python test_parser_offline.py
+```
+
+The verified result is:
+
+```text
+Results: 79 passed, 0 failed
+ALL PARSER TESTS PASSED
+```
+
+The checks cover mandatory regression cases, priority keyword handling, date-phrase matching, title extraction, whitespace normalization, casing preservation, and empty or keyword-free descriptions.
+
+### Algorithm Correctness Checks
+
+Run the algorithm verification script:
+
+```bash
+python check_algorithms.py
+```
+
+The verified result is:
+
+```text
+Results: 20 passed, 0 failed
+ALL REQUIRED ALGORITHM CHECKS PASSED
+```
+
+These checks cover insertion sort, binary search, linear search, comparison counts, and return values. Benchmark measurements are documented separately in the Benchmark section.
 ### Worked Examples
 
 All examples show actual inputs sent to `POST /tasks/quick-add` and the exact parsed JSON returned by the live endpoint.

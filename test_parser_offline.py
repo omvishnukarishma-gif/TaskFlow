@@ -280,6 +280,5 @@ print(f"\n{'='*50}")
 print(f"Results: {_pass} passed, {_fail} failed")
 if _fail == 0:
     print("ALL PARSER TESTS PASSED")
-    sys.exit(0)
 else:
     sys.exit(1)
